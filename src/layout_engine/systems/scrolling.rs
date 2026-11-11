@@ -440,7 +440,11 @@ impl Geometry {
             }
             // Expansion is derived geometry; keep the requested width for later.
             let base = if settings.expand_single_column && active_columns == 1 {
-                tiling.size.width
+                proportional_width(
+                    tiling.size.width,
+                    gaps.inner.horizontal,
+                    settings.expand_single_column_ratio,
+                )
             } else {
                 column.resolved_width(
                     tiling.size.width,
@@ -2580,6 +2584,26 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn single_column_expansion_uses_ratio_and_stays_centered() {
+        let mut f = Fixture::new(1);
+        let mut settings = f.system.settings.clone();
+        settings.expand_single_column = true;
+        settings.expand_single_column_ratio = 0.8;
+        settings.alignment = ScrollingAlignment::Center;
+        f.system.update_settings(&settings);
+        assert_eq!(f.frame(1).size.width, 800.0);
+        assert_eq!(f.frame(1).origin.x, 100.0);
+
+        // Additional columns use the normal width; a lone column expands again.
+        f.system.add_window_after_selection(f.layout, wid(2));
+        assert_eq!(f.frame(1).size.width, 500.0);
+        assert_eq!(f.frame(2).size.width, 500.0);
+        f.system.remove_window(wid(2));
+        assert_eq!(f.frame(1).size.width, 800.0);
+        assert_eq!(f.frame(1).origin.x, 100.0);
+    }
+
+    #[test]
     fn single_column_expansion_respects_window_width_constraints() {
         for (constraints, width) in [
             (
@@ -2938,6 +2962,7 @@ pub(crate) mod tests {
             column_width_ratio: Some(0.6),
             min_column_width_ratio: Some(0.3),
             max_column_width_ratio: Some(0.7),
+            expand_single_column_ratio: None,
         });
         f.system.update_settings(&settings);
         f.constraints.insert(wid(1), WindowLayoutConstraints {

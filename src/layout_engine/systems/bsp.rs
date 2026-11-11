@@ -1710,10 +1710,12 @@ impl LayoutSystem for BspLayoutSystem {
                 )
                 && !self.stacks.contains_key(&state.root)
             {
+                // Only narrow windows on screens wider than the ratio; narrower
+                // screens keep the full frame instead of being letterboxed.
                 let (width, height) = if frame.size.width > frame.size.height * ratio {
                     (frame.size.height * ratio, frame.size.height)
                 } else {
-                    (frame.size.width, frame.size.width / ratio)
+                    (frame.size.width, frame.size.height)
                 };
                 frame.origin.x = rect.origin.x + (rect.size.width - width) / 2.0;
                 frame.origin.y = rect.origin.y + (rect.size.height - height) / 2.0;

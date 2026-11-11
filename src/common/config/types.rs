@@ -1202,7 +1202,8 @@ pub struct BspLayoutSettings {
     #[serde(flatten)]
     #[setting(ignore)]
     pub base: BaseLayoutSettings,
-    /// Center a lone window at this width-to-height ratio.
+    /// Center a lone window at most this wide relative to its height.
+    /// Screens narrower than the ratio keep the full frame.
     #[setting(label = "Single window aspect ratio", custom)]
     pub single_window_aspect_ratio: Option<f64>,
 }

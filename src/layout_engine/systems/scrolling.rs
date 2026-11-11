@@ -578,6 +578,13 @@ impl Geometry {
                 }
             }
         }
+        // A lone column also rests at its alignment position, as reveal places it.
+        if self.columns.len() == 1 {
+            points.push(SnapPoint {
+                offset: self.anchor_offset(0, settings.alignment),
+                column: 0,
+            });
+        }
         points
     }
 
@@ -966,7 +973,9 @@ impl LayoutState {
         let Some(column) = self.columns.get(self.active_column).and_then(|c| g.column(c.id)) else {
             return;
         };
-        let offset = if settings.focus_navigation_style == ScrollingFocusNavigationStyle::Anchored {
+        let offset = if settings.focus_navigation_style == ScrollingFocusNavigationStyle::Anchored
+            || g.columns.len() == 1
+        {
             g.anchor_offset(
                 g.columns.iter().position(|c| c.id == column.id).unwrap(),
                 settings.alignment,
@@ -1019,6 +1028,12 @@ impl LayoutState {
         self.reconcile_camera_bounds();
         if self.columns.is_empty() {
             self.viewport = Viewport::Static(0.0);
+        } else if self.columns.len() == 1
+            && !matches!(self.viewport, Viewport::Gesture(_))
+            && let Some(g) = &self.geometry
+        {
+            // Re-align a column left alone by any edit, even when focus didn't move.
+            self.viewport.set_target(g.anchor_offset(0, settings.alignment));
         }
         result
     }
@@ -2989,6 +3004,23 @@ pub(crate) mod tests {
                 presented_frames(&system, layout).next().unwrap().1.origin.x,
                 single
             );
+        }
+    }
+
+    #[test]
+    fn niri_lone_column_follows_alignment_after_others_close() {
+        for (alignment, x) in [(ScrollingAlignment::Left, 0.0), (ScrollingAlignment::Center, 250.0)] {
+            let mut f = Fixture::new(3);
+            let mut settings = f.system.settings.clone();
+            settings.alignment = alignment;
+            settings.focus_navigation_style = ScrollingFocusNavigationStyle::Niri;
+            f.system.update_settings(&settings);
+            f.select(2);
+            f.frames();
+            // Closing an unfocused window must re-align as well.
+            f.system.remove_window(wid(3));
+            f.system.remove_window(wid(1));
+            assert_eq!(f.frame(2).origin.x, x, "alignment={alignment:?}");
         }
     }
 

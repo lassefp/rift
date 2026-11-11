@@ -120,6 +120,8 @@ pub enum LayoutCommand {
     #[command(skip)]
     SwitchToWorkspace(usize),
     #[command(skip)]
+    ToggleWorkspace(usize),
+    #[command(skip)]
     MoveWindowToWorkspace {
         workspace: WorkspaceSelector,
         follow: bool,

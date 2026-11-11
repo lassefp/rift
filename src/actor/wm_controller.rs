@@ -129,6 +129,12 @@ pub enum WmCmd {
     SwitchToWorkspace(WorkspaceSelector),
     #[command(
         group = 2,
+        order = 29,
+        sample = "Self::ToggleWorkspace(WorkspaceSelector::Index(0))"
+    )]
+    ToggleWorkspace(WorkspaceSelector),
+    #[command(
+        group = 2,
         order = 30,
         sample = "Self::MoveWindowToWorkspace(WorkspaceSelector::Index(0))"
     )]
@@ -412,7 +418,11 @@ impl WmController {
                     layout::LayoutCommand::PrevWorkspace(None),
                 )));
             }
-            Command(Wm(SwitchToWorkspace(ws_sel))) => {
+            Command(Wm(cmd @ (SwitchToWorkspace(_) | ToggleWorkspace(_)))) => {
+                let toggle = matches!(cmd, ToggleWorkspace(_));
+                let (SwitchToWorkspace(ws_sel) | ToggleWorkspace(ws_sel)) = cmd else {
+                    unreachable!()
+                };
                 let maybe_index: Option<usize> = match &ws_sel {
                     WorkspaceSelector::Index(i) => Some(*i),
                     WorkspaceSelector::Name(name) => self
@@ -426,7 +436,11 @@ impl WmController {
 
                 if let Some(workspace_index) = maybe_index {
                     self.events_tx.send(reactor::Event::Command(reactor::Command::Layout(
-                        layout::LayoutCommand::SwitchToWorkspace(workspace_index),
+                        if toggle {
+                            layout::LayoutCommand::ToggleWorkspace(workspace_index)
+                        } else {
+                            layout::LayoutCommand::SwitchToWorkspace(workspace_index)
+                        },
                     )));
                 } else {
                     tracing::warn!(

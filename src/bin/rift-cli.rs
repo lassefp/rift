@@ -294,6 +294,8 @@ enum WorkspaceCommands {
     Prev { skip_empty: Option<bool> },
     /// Switch to specific workspace
     Switch { workspace_id: usize },
+    /// Switch to specific workspace, or back to the last one if it is already active
+    Toggle { workspace_id: usize },
     /// Move current window to workspace
     MoveWindow {
         workspace_id: usize,
@@ -941,6 +943,9 @@ fn map_workspace_command(cmd: WorkspaceCommands) -> Result<CliCommand, String> {
         )),
         WorkspaceCommands::Switch { workspace_id } => Ok(CliCommand::Reactor(
             reactor::Command::Layout(LC::SwitchToWorkspace(workspace_id)),
+        )),
+        WorkspaceCommands::Toggle { workspace_id } => Ok(CliCommand::Reactor(
+            reactor::Command::Layout(LC::ToggleWorkspace(workspace_id)),
         )),
         WorkspaceCommands::MoveWindow {
             workspace_id,

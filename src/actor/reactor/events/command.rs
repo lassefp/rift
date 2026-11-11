@@ -56,6 +56,7 @@ pub fn handle_command_layout(
         LayoutCommand::NextWorkspace(_)
         | LayoutCommand::PrevWorkspace(_)
         | LayoutCommand::SwitchToWorkspace(_)
+        | LayoutCommand::ToggleWorkspace(_)
         | LayoutCommand::SwitchToLastWorkspace => (true, true, true),
         LayoutCommand::MoveWindowToWorkspace { follow, .. } => (true, follow, follow),
         LayoutCommand::SetWorkspaceLayout { .. } | LayoutCommand::CreateWorkspace => {

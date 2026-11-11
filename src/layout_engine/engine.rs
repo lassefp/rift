@@ -2353,6 +2353,7 @@ impl LayoutEngine {
                 | LayoutCommand::NextWorkspace(_)
                 | LayoutCommand::PrevWorkspace(_)
                 | LayoutCommand::SwitchToWorkspace(_)
+                | LayoutCommand::ToggleWorkspace(_)
                 | LayoutCommand::SwitchToLastWorkspace
                 | LayoutCommand::CreateWorkspace
                 | LayoutCommand::SetWorkspaceLayout { .. }
@@ -2774,6 +2775,7 @@ impl LayoutEngine {
             LayoutCommand::NextWorkspace(_)
             | LayoutCommand::PrevWorkspace(_)
             | LayoutCommand::SwitchToWorkspace(_)
+            | LayoutCommand::ToggleWorkspace(_)
             | LayoutCommand::MoveWindowToWorkspace { .. }
             | LayoutCommand::SetWorkspaceLayout { .. }
             | LayoutCommand::CreateWorkspace
@@ -3241,6 +3243,19 @@ impl LayoutEngine {
                     return EventResponse::default();
                 };
                 self.switch_to_workspace_id(window_store, context, target.id, None)
+            }
+            LayoutCommand::ToggleWorkspace(workspace_index) => {
+                let Some(target) = self
+                    .workspaces
+                    .resolve_workspace(context, &WorkspaceSelector::Index(*workspace_index))
+                else {
+                    return EventResponse::default();
+                };
+                if self.workspaces.active_workspace(context.space) == Some(target.id) {
+                    self.switch_to_previous_workspace(window_store, context)
+                } else {
+                    self.switch_to_workspace_id(window_store, context, target.id, None)
+                }
             }
             LayoutCommand::MoveWindowToWorkspace {
                 workspace,
@@ -5602,6 +5617,27 @@ mod tests {
             &LayoutCommand::SwitchToWorkspace(1),
         );
         assert!(switched.changed);
+    }
+
+    #[test]
+    fn toggle_workspace_returns_to_previous_workspace_when_already_active() {
+        let mut window_store = WindowStore::default();
+        let mut engine = test_engine();
+        let space = SpaceId::new(83);
+
+        let workspaces = engine.workspaces_mut().list_workspaces(space).to_vec();
+        assert!(engine.workspaces_mut().set_active_workspace(space, workspaces[0].0));
+        assert!(!engine.workspaces.settings.workspace_auto_back_and_forth);
+
+        for expected in [workspaces[2].0, workspaces[0].0, workspaces[2].0] {
+            let response = engine.handle_virtual_workspace_command(
+                &mut window_store,
+                space,
+                &LayoutCommand::ToggleWorkspace(2),
+            );
+            assert!(response.changed);
+            assert_eq!(engine.workspaces.active_workspace(space), Some(expected));
+        }
     }
 
     #[test]

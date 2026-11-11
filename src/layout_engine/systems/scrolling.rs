@@ -1035,6 +1035,7 @@ impl LayoutState {
         } else if self.columns.len() == 1
             && !matches!(self.viewport, Viewport::Gesture(_))
             && let Some(g) = &self.geometry
+            && !g.columns.is_empty()
         {
             // Re-align a column left alone by any edit, even when focus didn't move.
             self.viewport.set_target(g.anchor_offset(0, settings.alignment));
@@ -3047,6 +3048,16 @@ pub(crate) mod tests {
             f.system.remove_window(wid(1));
             assert_eq!(f.frame(2).origin.x, x, "alignment={alignment:?}");
         }
+    }
+
+    #[test]
+    fn lone_window_survives_losing_and_regaining_participation() {
+        let mut f = Fixture::new(1);
+        let before = f.frame(1);
+        f.system.set_window_participation(wid(1), false);
+        assert!(f.frames().is_empty());
+        f.system.set_window_participation(wid(1), true);
+        assert_eq!(f.frame(1), before);
     }
 
     #[test]

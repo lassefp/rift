@@ -1785,10 +1785,12 @@ impl LayoutEngine {
     fn sync_scrolling_widths_for_space(&mut self, space: SpaceId) {
         let display = self.space_display_map.get(&space).and_then(Option::as_deref);
         let widths = self.layout_settings.scrolling.widths_for_display(display);
+        let expand_ratio = self.layout_settings.scrolling.expand_ratio_for_display(display);
         for (_, ws) in self.workspaces.workspaces.iter_mut() {
             if ws.space == space {
                 if let LayoutSystemKind::Scrolling(system) = &mut ws.layout_system {
                     system.update_width_settings(widths);
+                    system.update_expand_ratio(expand_ratio);
                 }
             }
         }
@@ -4236,6 +4238,7 @@ mod tests {
             "display-a".into(),
             crate::common::config::ScrollingWidthOverride {
                 column_width_ratio: Some(0.5),
+                expand_single_column_ratio: Some(0.8),
                 ..Default::default()
             },
         );
@@ -4259,8 +4262,18 @@ mod tests {
         assert_eq!(width(&engine, ids_a[0].0), 0.5);
         assert_eq!(width(&engine, ids_a[1].0), 0.5);
         assert_eq!(width(&engine, ids_b[0].0), 0.7);
+        let expand =
+            |engine: &LayoutEngine, id| match &engine.workspaces.workspaces[id].layout_system {
+                LayoutSystemKind::Scrolling(system) => system.configured_expand_ratio(),
+                _ => panic!("expected scrolling"),
+            };
+        assert_eq!(expand(&engine, ids_a[0].0), 0.8);
         engine.update_space_display(a, Some("display-b".into()));
         assert_eq!(width(&engine, ids_a[0].0), 0.7);
+        assert_eq!(expand(&engine, ids_a[0].0), 1.0);
+        engine.update_space_display(a, Some("display-a".into()));
+        assert_eq!(expand(&engine, ids_a[0].0), 0.8);
+        engine.update_space_display(a, Some("display-b".into()));
         settings.scrolling.column_width_ratio = 0.6;
         settings.scrolling.per_display.get_mut("display-a").unwrap().column_width_ratio = Some(0.4);
         engine.update_space_display(a, Some("display-a".into()));

@@ -1655,7 +1655,7 @@ impl ScrollingLayoutSettings {
         )
     }
 
-    fn expand_ratio_for_display(&self, display_uuid: Option<&str>) -> f64 {
+    pub fn expand_ratio_for_display(&self, display_uuid: Option<&str>) -> f64 {
         display_uuid
             .and_then(|uuid| self.per_display.get(uuid))
             .and_then(|o| o.expand_single_column_ratio)

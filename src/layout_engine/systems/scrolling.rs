@@ -1169,6 +1169,20 @@ impl ScrollingLayoutSystem {
         }
     }
 
+    pub fn update_expand_ratio(&mut self, ratio: f64) {
+        if ratio == self.settings.expand_single_column_ratio {
+            return;
+        }
+        self.settings.expand_single_column_ratio = ratio;
+        for state in self.layouts.values_mut() {
+            state.mutate(&self.settings, &self.inactive, |_| {});
+        }
+    }
+
+    pub(crate) fn configured_expand_ratio(&self) -> f64 {
+        self.settings.expand_single_column_ratio
+    }
+
     pub(crate) fn configured_widths(&self) -> (f64, f64, f64) {
         (
             self.settings.column_width_ratio,

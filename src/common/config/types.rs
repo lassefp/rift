@@ -1260,6 +1260,10 @@ pub struct ScrollingLayoutSettings {
     #[serde(default)]
     #[setting(label = "Expand single column", custom)]
     pub expand_single_column: bool,
+    /// Width of an expanded single column, as a fraction of the usable width.
+    #[serde(default = "default_expand_single_column_ratio")]
+    #[setting(ignore)]
+    pub expand_single_column_ratio: f64,
     /// Minimum column width ratio allowed by resize commands.
     #[serde(default = "default_scrolling_min_column_width_ratio")]
     #[setting(
@@ -1301,6 +1305,8 @@ pub struct ScrollingLayoutSettings {
 
 fn default_scrolling_animate() -> Option<bool> { Some(true) }
 
+fn default_expand_single_column_ratio() -> f64 { 1.0 }
+
 impl Default for ScrollingLayoutSettings {
     fn default() -> Self {
         Self {
@@ -1310,6 +1316,7 @@ impl Default for ScrollingLayoutSettings {
             preset_column_widths: default_scrolling_preset_column_widths(),
             preserve_window_sizes: true,
             expand_single_column: false,
+            expand_single_column_ratio: default_expand_single_column_ratio(),
             min_column_width_ratio: default_scrolling_min_column_width_ratio(),
             max_column_width_ratio: default_scrolling_max_column_width_ratio(),
             per_display: HashMap::default(),
@@ -1326,6 +1333,7 @@ pub struct ScrollingWidthOverride {
     pub column_width_ratio: Option<f64>,
     pub min_column_width_ratio: Option<f64>,
     pub max_column_width_ratio: Option<f64>,
+    pub expand_single_column_ratio: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy, Default, ConfigEnum)]
@@ -1647,6 +1655,13 @@ impl ScrollingLayoutSettings {
         )
     }
 
+    fn expand_ratio_for_display(&self, display_uuid: Option<&str>) -> f64 {
+        display_uuid
+            .and_then(|uuid| self.per_display.get(uuid))
+            .and_then(|o| o.expand_single_column_ratio)
+            .unwrap_or(self.expand_single_column_ratio)
+    }
+
     pub fn effective_for_display(&self, display_uuid: Option<&str>) -> Self {
         let mut resolved = self.clone();
         (
@@ -1654,6 +1669,7 @@ impl ScrollingLayoutSettings {
             resolved.min_column_width_ratio,
             resolved.max_column_width_ratio,
         ) = self.widths_for_display(display_uuid);
+        resolved.expand_single_column_ratio = self.expand_ratio_for_display(display_uuid);
         resolved.per_display.clear();
         resolved
     }
@@ -1661,12 +1677,11 @@ impl ScrollingLayoutSettings {
     pub fn validate(&self) -> Vec<String> {
         let mut issues = Vec::new();
         Self::validate_widths("layout.scrolling", self.widths_for_display(None), &mut issues);
+        Self::validate_expand_ratio("layout.scrolling", self.expand_ratio_for_display(None), &mut issues);
         for uuid in self.per_display.keys() {
-            Self::validate_widths(
-                &format!("layout.scrolling.per_display[{uuid}]"),
-                self.widths_for_display(Some(uuid)),
-                &mut issues,
-            );
+            let path = format!("layout.scrolling.per_display[{uuid}]");
+            Self::validate_widths(&path, self.widths_for_display(Some(uuid)), &mut issues);
+            Self::validate_expand_ratio(&path, self.expand_ratio_for_display(Some(uuid)), &mut issues);
         }
 
         if self.gestures.vertical_tolerance < 0.0 {
@@ -1677,6 +1692,14 @@ impl ScrollingLayoutSettings {
         }
 
         issues
+    }
+
+    fn validate_expand_ratio(path: &str, ratio: f64, issues: &mut Vec<String>) {
+        if !(ratio > 0.0 && ratio <= 1.0) {
+            issues.push(format!(
+                "{path}.expand_single_column_ratio must be within (0.0, 1.0], got {ratio}",
+            ));
+        }
     }
 
     fn validate_widths(path: &str, (ratio, min, max): (f64, f64, f64), issues: &mut Vec<String>) {

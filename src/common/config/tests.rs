@@ -11,6 +11,32 @@ use crate::layout_engine::{LayoutCommand, ResizeOrientation};
 use crate::sys::hotkey::Modifiers;
 
 #[test]
+fn scrolling_expand_ratio_merges_per_display_and_validates() {
+    let mut settings: ScrollingLayoutSettings = toml::from_str(
+        r#"
+            expand_single_column = true
+            expand_single_column_ratio = 0.8
+            [per_display."laptop"]
+            expand_single_column_ratio = 1.0
+            "#,
+    )
+    .unwrap();
+    assert_eq!(settings.effective_for_display(None).expand_single_column_ratio, 0.8);
+    assert_eq!(settings.effective_for_display(Some("other")).expand_single_column_ratio, 0.8);
+    assert_eq!(settings.effective_for_display(Some("laptop")).expand_single_column_ratio, 1.0);
+    assert!(settings.validate().is_empty());
+    assert_eq!(ScrollingLayoutSettings::default().expand_single_column_ratio, 1.0);
+
+    settings.per_display.get_mut("laptop").unwrap().expand_single_column_ratio = Some(0.0);
+    assert!(
+        settings
+            .validate()
+            .iter()
+            .any(|issue| issue.contains("per_display[laptop].expand_single_column_ratio"))
+    );
+}
+
+#[test]
 fn scrolling_display_widths_merge_and_validate() {
     let settings: ScrollingLayoutSettings = toml::from_str(
         r#"

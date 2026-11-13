@@ -1179,6 +1179,7 @@ impl ScrollingLayoutSystem {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn configured_expand_ratio(&self) -> f64 {
         self.settings.expand_single_column_ratio
     }
